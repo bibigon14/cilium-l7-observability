@@ -1,0 +1,66 @@
+# Two curl clients that generate steady traffic against httpbin.
+# Both hit the same ClusterIP by direct address (bypassing DNS on purpose -
+# the demo focuses on Cilium identity-based policy, not DNS resolution).
+# curl-client hits allowed paths (/get, /headers), bad-client hits paths
+# that would be denied once the Cilium L4 policy is applied.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: curl-client
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: curl-client
+  template:
+    metadata:
+      labels:
+        app: curl-client
+    spec:
+      containers:
+        - name: curl
+          image: nicolaka/netshoot:latest
+          command: ["sh", "-c"]
+          args:
+            - |
+              HTTPBIN_IP="${HTTPBIN_IP:-10.43.222.207}"
+              while true; do
+                curl -sS --retry 2 --retry-delay 1 -m 5 http://${HTTPBIN_IP}/get      -o /dev/null -w 'good /get      %{http_code}\n'
+                curl -sS --retry 2 --retry-delay 1 -m 5 http://${HTTPBIN_IP}/headers  -o /dev/null -w 'good /headers  %{http_code}\n'
+                sleep 2
+              done
+          env:
+            - name: HTTPBIN_IP
+              value: "10.43.222.207"  # ClusterIP of httpbin Service; replace if yours differs
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-client
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bad-client
+  template:
+    metadata:
+      labels:
+        app: bad-client
+    spec:
+      containers:
+        - name: curl
+          image: nicolaka/netshoot:latest
+          command: ["sh", "-c"]
+          args:
+            - |
+              HTTPBIN_IP="${HTTPBIN_IP:-10.43.222.207}"
+              while true; do
+                curl -sS --retry 2 --retry-delay 1 -m 5 http://${HTTPBIN_IP}/admin   -o /dev/null -w 'bad  /admin   %{http_code}\n'
+                curl -sS --retry 2 --retry-delay 1 -m 5 http://${HTTPBIN_IP}/secret  -o /dev/null -w 'bad  /secret  %{http_code}\n'
+                sleep 3
+              done
+          env:
+            - name: HTTPBIN_IP
+              value: "10.43.222.207"

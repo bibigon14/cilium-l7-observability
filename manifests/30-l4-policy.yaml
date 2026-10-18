@@ -1,0 +1,28 @@
+# CiliumNetworkPolicy: identity-based L4 ingress for httpbin.
+#
+# Only pods with label app=curl-client can reach httpbin on TCP/8080.
+# bad-client is implicitly denied once this policy is applied, because
+# a selector on httpbin flips its default from allow-all to deny-all
+# ingress except for rules below.
+#
+# L7 HTTP visibility is kept via Hubble metrics (dns, drop, tcp, flow,
+# httpV2) enabled on the Cilium daemonset; the policy itself is L4
+# because L7 enforcement at the Envoy proxy requires extra tuning
+# that's out of scope for this demo.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: httpbin-l4-allow
+  namespace: demo
+spec:
+  endpointSelector:
+    matchLabels:
+      app: httpbin
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: curl-client
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
