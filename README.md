@@ -37,6 +37,15 @@ Identity-based, not IP-based: delete and recreate either client, the
 policy keeps working because Cilium matches on pod labels (identities),
 not on IP addresses.
 
+![Hubble UI identity filter](docs/screenshots/hubble-ui-curl-client-allowed.png)
+
+Same view filtered by Cilium identity (`identity=2586`, which Hubble
+resolves to `curl-client` through pod labels). All visible flows are
+`forwarded`; the pod's labels (`app=curl-client`, namespace labels,
+cluster, service account) are exactly what the policy's
+`fromEndpoints.matchLabels` selected on. Rebuild the pod and its IP
+changes but its identity (and policy allow-list match) does not.
+
 ## Repo layout
 
 ```
